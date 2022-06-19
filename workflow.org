@@ -16,7 +16,7 @@ This project was created in [[http://insectphysiology.uc.edu/][Dr. Benoit's Lab]
 * Workflow overview
 ** Flowchart
 There are many different steps involved in this project, here is the high level flowchart.
-#+begin_src plantuml :file resources/flowchart.png :tangle resources/flowchart.puml
+#+begin_src plantuml :file resources/flowchart.png :tangle scripts/utility/flowchart.puml
 @startuml
 !theme blueprint
 :Fasta Files, Assembly;
@@ -76,6 +76,16 @@ I also compared my data to the time course data from another experiment led by a
 * Directory Structure
 Unfortunately, I can't include the dataset in this repository (its too big!), so instead I will list what you need to run this project.
 
+All of the data needed for this project should be put into various sub directories within the =data= directory.
+** =assembly=
++ =assembly.fasta=
+** =quant=
+I used two subdirectories within this directory.
+*** =main=
+This is where all the data for the main analysis of the project is stored
+*** =time_series=
+This is where all the data for the time series analysis is stored
+
 * How to run
 My Emacs setup is very custom, so if you aren't me, then you should use these instructions:
 + Have an install of nix with [[https://nixos.wiki/wiki/Flakes][flakes]]. If you don't have this, then unfortunately I cannot ensure that you will have the same environment, if you are absolutely set on not using nix, then file an issue in the github and I'll walk you through making it work.
@@ -85,10 +95,13 @@ My Emacs setup is very custom, so if you aren't me, then you should use these in
 + That's it! There should be an output directory with all the figures and tables.
 
 If everything was done correctly then it should work, otherwise file an issue [[https://github.com/IllustratedMan-code/RNA-seq-Workflow][here]], or contact me at [[mailto:davidalewis00@gmail.com][my email]].
+** Script by script
+If run in a script by script basis, the code must be run from the root of this directory.
 * R analysis
 This section is where the actual code is explained and written
 ** Metadata
-#+name: meta
+Metadata is needed to organize the project in a way that the program can understand. Here is the metadata I used for this project.
+#+name: main
 | name                | pesticides | part | trial |
 | Per_Bod_1.tabular   | perm       | body |     1 |
 | Per_Bod_3.tabular   | perm       | body |     3 |
@@ -107,27 +120,155 @@ This section is where the actual code is explained and written
 | Cont_Leg_3.tabular  | control    | leg  |     3 |
 | Cont_Leg_2a.tabular | control    | leg  |     2 |
 | Cont_Leg_1.tabular  | control    | leg  |     1 |
-#+begin_src python :var data=meta
-import pandas as pd
-return data
+
+#+name: time_series
+| name                 | Pesticide | Time    |
+| Cont-1.tabular       | control   | control |
+| Cont-2.tabular       | control   | control |
+| Cont-3.tabular       | control   | control |
+| PER-2h-A.tabular     | perm      | 2h      |
+| PER-2h-B.tabular     | perm      | 2h      |
+| PER-2h-C.tabular     | perm      | 2h      |
+| PER-6h-A.tabular     | perm      | 6h      |
+| PER-6h-B.tabular     | perm      | 6h      |
+| PER-6h-C.tabular     | perm      | 6h      |
+| PER-24h-A.tabular    | perm      | 24h     |
+| PER-24h-B.tabular    | perm      | 24h     |
+| PER-24h-C.tabular    | perm      | 24h     |
+| Deet-0.25h-1.tabular | perm      | 2h      |
+| Deet-0.25h-2.tabular | perm      | 2h      |
+| Deet-0.25h-3.tabular | perm      | 2h      |
+| Deet-4h-1.tabular    | perm      | 6h      |
+| Deet-4h-2.tabular    | perm      | 6h      |
+| Deet-4h-3.tabular    | perm      | 6h      |
+| Deet-24h-1.tabular   | perm      | 24h     |
+| Deet-24h-2.tabular   | perm      | 24h     |
+| Deet-24h-3.tabular   | perm      | 24h     |
+
+We will write the metadata to the =data/metadata= directory using a small script.
+#+begin_src python :var main=main :var time_series=time_series
+import csv
+import os
+with open("data/metadata/main.csv", "w") as f:
+    writer = csv.writer(f)
+    writer.writerows(main)
+with open("data/metadata/time_series.csv", "w") as f:
+    writer = csv.writer(f)
+    writer.writerows(time_series)
 #+end_src
 
 #+RESULTS:
-| name                | pesticides | part | trial |
-| Per_Bod_1.tabular   | perm       | body |     1 |
-| Per_Bod_3.tabular   | perm       | body |     3 |
-| Per_Leg_3.tabular   | perm       | leg  |     3 |
-| Per_Leg_2.tabular   | perm       | leg  |     2 |
-| Per_Leg_1.tabular   | perm       | leg  |     1 |
-| Deet_Bod_3.tabular  | deet       | body |     3 |
-| Deet_Bod_2.tabular  | deet       | body |     2 |
-| Deet_Bod_1.tabular  | deet       | body |     1 |
-| Deet_Leg_3.tabular  | deet       | leg  |     3 |
-| Deet_Leg_2.tabular  | deet       | leg  |     2 |
-| Deet_Leg_1.tabular  | deet       | leg  |     1 |
-| Cont_Bod_3.tabular  | control    | body |     3 |
-| Cont_Bod_2.tabular  | control    | body |     2 |
-| Cont_Bod_1.tabular  | control    | body |     1 |
-| Cont_Leg_3.tabular  | control    | leg  |     3 |
-| Cont_Leg_2a.tabular | control    | leg  |     2 |
-| Cont_Leg_1.tabular  | control    | leg  |     1 |
+: None
+
+** Import the data
+The data cannot be imported into differential analysis tools directly, so processing has to occur before analysis.
+*** Manipulate the assembly
+The assembly is located in =data/assembly/assembly.fasta=. Unfortunately, the data can only be imported if the assembly is converted to a =.tabular= file in a specific format. I have written a small script to do the conversion automatically.
+#+begin_src python :tangle scripts/utility/convert_fasta_to_tabular.py
+"""Script to convert assembly.fasta into assembly.tabular"""
+import csv
+with open("data/assembly/assembly.fasta", "r") as f:
+    lines = f.readlines()
+with open("data/assembly/assembly.tabular", "w") as f:
+    for gene, rna in zip(lines[::2], lines[1::2]):
+        f.write(f"{gene[1::].strip()}\t{gene[1::].strip()}\t{rna}")
+
+#+end_src
+
+#+RESULTS:
+: None
+
+*** Import using tximport
+Now we need to create the txi objects so we can import them into the differential analysis tools. Since we will need to import more than once, I created a function for tximport.
+#+begin_src R :tangle scripts/analysis/import_functions.r
+library(tximport)
+
+create_txi <- function(meta_name, quant_type){
+  metadata <- read.csv(file.path("data/metadata", paste(meta_name, "csv", sep=".")), header=TRUE)
+  files <- file.path("data/quant", meta_name, metadata$name)
+  names(files) = metadata$name
+  assembly = read.table("data/assembly/assembly.tabular")
+  txi <- tximport(files, type=quant_type, tx2gene=assembly)
+  return(txi)
+}
+
+#+end_src
+
+#+RESULTS:
+*** Import into Deseq2
+Here I created a function to import the txi object from the previous section into a deseq2 object.
+#+begin_src R :tangle scripts/analysis/import_functions.r
+library(DESeq2)
+create_deseq <-function(meta_name, txi, design){
+  metadata <- read.csv(file.path("data/metadata", paste(meta_name, "csv", sep=".")), header=TRUE)
+  dataset <- DESeqDataSetFromTximport(txi, colData=metadata, design=design)
+  deseq <- DESeq(data)
+  return(deseq)
+}
+#+end_src
+*** Import into EdgeR
+Here I created a function to import the txi object into an edgeR object. This is a little more complicated.
+#+begin_src R :tangle scripts/analysis/import_functions.r
+library(edgeR)
+create_edgeR <- function(txi, meta)
+#+end_src
+*** Import into WGCNA
+**** Convert data to WGCNA
+***** Build WGCNA data file from quant file
+WGCNA doesn't understand tximport datasets, so we must manipulate the quant files into a dataset that WGCNA can understand.
+#+begin_src python :tangle scripts/analysis/import_functions.py
+import pandas as pd
+from itertools import combinations
+def convert_to_WGCNA(meta_name):
+    # quant files
+    meta = pd.read_csv(f"data/metadata/{meta_name}.csv")
+    data = pd.DataFrame()
+    for i in meta.name:
+        data[i] = pd.read_table(f"data/quant/{meta_name}/{i}")["TPM"]
+    truth = pd.DataFrame()
+
+    truth["sample"] = meta["name"]
+    # truth table
+    for col in meta.columns[1::]:
+        comparisons = meta[col].unique()
+        for comparison in comparisons:
+            truth[col +"_"+ str(comparison)] = meta[col].apply(lambda x: int(x == col))
+    extracomparisions = combinations(truth.columns[1::], 2)
+    for comparison in extracomparisions:
+        truth[comparison[0] + "__" + comparison[1]] = truth[[comparison[0], comparison[1]]].apply(lambda x: x[comparison[0]] or x[comparison[1]], axis=1)
+
+    return truth
+return convert_to_WGCNA("main")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+sample  pesticides_perm  ...  trial_1__trial_2  trial_3__trial_2
+0     Per_Bod_1.tabular                0  ...                 0                 0
+1     Per_Bod_3.tabular                0  ...                 0                 0
+2     Per_Leg_3.tabular                0  ...                 0                 0
+3     Per_Leg_2.tabular                0  ...                 0                 0
+4     Per_Leg_1.tabular                0  ...                 0                 0
+5    Deet_Bod_3.tabular                0  ...                 0                 0
+6    Deet_Bod_2.tabular                0  ...                 0                 0
+7    Deet_Bod_1.tabular                0  ...                 0                 0
+8    Deet_Leg_3.tabular                0  ...                 0                 0
+9    Deet_Leg_2.tabular                0  ...                 0                 0
+10   Deet_Leg_1.tabular                0  ...                 0                 0
+11   Cont_Bod_3.tabular                0  ...                 0                 0
+12   Cont_Bod_2.tabular                0  ...                 0                 0
+13   Cont_Bod_1.tabular                0  ...                 0                 0
+14   Cont_Leg_3.tabular                0  ...                 0                 0
+15  Cont_Leg_2a.tabular                0  ...                 0                 0
+16   Cont_Leg_1.tabular                0  ...                 0                 0
+
+[17 rows x 37 columns]
+#+end_example
+
+***** Build metadata table for WGCNA
+#+begin_src python
+
+#+end_src
+
+
+** Deseq

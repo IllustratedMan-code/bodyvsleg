@@ -1,8 +1,0 @@
-@startuml
-:Fasta Files, Assembly;
-Partition "hi" {
-        :Ready;
-        :Set;
-        :Go;
-}
-@enduml

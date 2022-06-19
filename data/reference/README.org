@@ -1,0 +1,1 @@
+Intermediate data objects (R objects) are stored here for later use.

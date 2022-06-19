@@ -23,8 +23,10 @@
         matplotlib
       '';
       MyRPackages = with pkgs.rPackages; [
-        ggplot
+        ggplot2
         DESeq2
+        tximport
+        edgeR
       ];
       Renv = pkgs.rWrapper.override{
         packages = with pkgs.rPackages; MyRPackages;
@@ -39,14 +41,14 @@
        packages = {
          ${system}.default = stdenv.mkDerivation{
           name = "RNA-seq output";
-          buildInputs = [pyenv];
+          buildInputs = [pyenv Renv];
           src = ./.;
           installPhase = "mkdir $out";
          };
        };
        devshells = {
          ${system}.default = pkgs.mkShell{
-           buildInputs = [pyenv plantuml];
+           buildInputs = [pyenv Renv plantuml];
          };
        };
     };
