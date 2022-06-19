@@ -1,0 +1,133 @@
+#+title: RNA-seq Leg Vs Body workflow
+#+STARTUP: overview
+#+STARTUP: hideblocks
+#+STARTUP: noinlineimages
+#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/theme-readtheorg.setup
+#+EXPORT_FILE_NAME: index.html
+
+* Introduction
+This is a bio-informatics project created using the [[https://en.wikipedia.org/wiki/Literate_programming][literate programming]] paradigm. This particular implementation uses Emacs' [[https://orgmode.org/][orgmode]] to create various script files using code blocks. Emacs also acts as a pipeline manager in this case. Using the Emacs function =org-babel-execute-buffer= allows all the code in this repository to be executed at once.
+
+The environment is constrained using the [[https://nixos.org/][nix]] build system. This ensures that at least parts of the project can be reproduced if given the same dataset.
+
+This particular project involves ticks of the species /Dermicentor variabilis/, otherwise known as the American dog tick. This project analyses the effect of pesticides (Deet and Permethrin) on the gene expression of these ticks using various computational tools.
+
+This project was created in [[http://insectphysiology.uc.edu/][Dr. Benoit's Lab]].
+* Workflow overview
+** Flowchart
+There are many different steps involved in this project, here is the high level flowchart.
+#+begin_src plantuml :file resources/flowchart.png :tangle resources/flowchart.puml
+@startuml
+!theme blueprint
+:Fasta Files, Assembly;
+Partition "**galaxy**" {
+        split
+            :Sailfish;
+        split again
+            :Salmon;
+        split again
+            :Kallisto;
+        split again
+            :FastQC;
+            detach
+        split end
+        :Quant Files;
+}
+Partition "**Differential Analysis**" {
+        :Tximport;
+        split
+            :Deseq2;
+        split again
+            :EdgeR;
+        split again
+            :Conversion Script;
+            :WGCNA;
+        split end
+}
+split
+Partition "**Gene Ontology with FastBlast**"{
+        :NCBI blast;
+        split
+            :"G:profiler";
+            :Revigo;
+        split again
+            :"geneontology.com";
+        split end
+}
+split again
+split end
+:Figures, Tables;
+@enduml
+#+end_src
+
+#+attr_html: :width=50%
+#+RESULTS:
+[[file:resources/flowchart.png]]
+** Explanation
+I was not originally a part of this project when the Fasta Files and genome assembly were created. My general understanding is that those steps occurred as part of a collaboration with Cincinnati Children's Medical Center.
+
+I imported the data into [[https://usegalaxy.org][galaxy]] then ran the tool FastQC to determine if the data was of high enough quality. Once I knew that the data was of reasonable quality, I generated "quant" files using 3 different tools, Salmon, Kallisto, and Sailfish. These tools generate relative gene counts called TPMs (transcripts per million) and store them in quant files. I ended only using quant data from Sailfish and Salmon.
+
+Once I had aquired the quant files from galaxy, I imported them into the R programming language using a package called =tximport=. I then used differential analysis tools (DESeq2, edgeR, and WGCNA) to determine which genes were differentially expressed in the dog ticks.
+
+Once I had the differentially expressed genes, I was able to generate figures and tables. I also compared the differentially expressed genes to the /Ixodes/ genome using the software NCBI blast, so that I can determine the gene annotations (what the genes were actually doing). I was able to generate treemaps from that information.
+
+I also compared my data to the time course data from another experiment led by a colleague in the Benoit labratory.
+* Directory Structure
+Unfortunately, I can't include the dataset in this repository (its too big!), so instead I will list what you need to run this project.
+
+* How to run
+My Emacs setup is very custom, so if you aren't me, then you should use these instructions:
++ Have an install of nix with [[https://nixos.wiki/wiki/Flakes][flakes]]. If you don't have this, then unfortunately I cannot ensure that you will have the same environment, if you are absolutely set on not using nix, then file an issue in the github and I'll walk you through making it work.
++ Clone the repository
++ Make sure you have everything setup according to [[Directory Structure]].
++ Run =nix build=
++ That's it! There should be an output directory with all the figures and tables.
+
+If everything was done correctly then it should work, otherwise file an issue [[https://github.com/IllustratedMan-code/RNA-seq-Workflow][here]], or contact me at [[mailto:davidalewis00@gmail.com][my email]].
+* R analysis
+This section is where the actual code is explained and written
+** Metadata
+#+name: meta
+| name                | pesticides | part | trial |
+| Per_Bod_1.tabular   | perm       | body |     1 |
+| Per_Bod_3.tabular   | perm       | body |     3 |
+| Per_Leg_3.tabular   | perm       | leg  |     3 |
+| Per_Leg_2.tabular   | perm       | leg  |     2 |
+| Per_Leg_1.tabular   | perm       | leg  |     1 |
+| Deet_Bod_3.tabular  | deet       | body |     3 |
+| Deet_Bod_2.tabular  | deet       | body |     2 |
+| Deet_Bod_1.tabular  | deet       | body |     1 |
+| Deet_Leg_3.tabular  | deet       | leg  |     3 |
+| Deet_Leg_2.tabular  | deet       | leg  |     2 |
+| Deet_Leg_1.tabular  | deet       | leg  |     1 |
+| Cont_Bod_3.tabular  | control    | body |     3 |
+| Cont_Bod_2.tabular  | control    | body |     2 |
+| Cont_Bod_1.tabular  | control    | body |     1 |
+| Cont_Leg_3.tabular  | control    | leg  |     3 |
+| Cont_Leg_2a.tabular | control    | leg  |     2 |
+| Cont_Leg_1.tabular  | control    | leg  |     1 |
+#+begin_src python :var data=meta
+import pandas as pd
+return data
+#+end_src
+
+#+RESULTS:
+| name                | pesticides | part | trial |
+| Per_Bod_1.tabular   | perm       | body |     1 |
+| Per_Bod_3.tabular   | perm       | body |     3 |
+| Per_Leg_3.tabular   | perm       | leg  |     3 |
+| Per_Leg_2.tabular   | perm       | leg  |     2 |
+| Per_Leg_1.tabular   | perm       | leg  |     1 |
+| Deet_Bod_3.tabular  | deet       | body |     3 |
+| Deet_Bod_2.tabular  | deet       | body |     2 |
+| Deet_Bod_1.tabular  | deet       | body |     1 |
+| Deet_Leg_3.tabular  | deet       | leg  |     3 |
+| Deet_Leg_2.tabular  | deet       | leg  |     2 |
+| Deet_Leg_1.tabular  | deet       | leg  |     1 |
+| Cont_Bod_3.tabular  | control    | body |     3 |
+| Cont_Bod_2.tabular  | control    | body |     2 |
+| Cont_Bod_1.tabular  | control    | body |     1 |
+| Cont_Leg_3.tabular  | control    | leg  |     3 |
+| Cont_Leg_2a.tabular | control    | leg  |     2 |
+| Cont_Leg_1.tabular  | control    | leg  |     1 |

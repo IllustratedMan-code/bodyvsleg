@@ -1,0 +1,41 @@
+@startuml
+!theme blueprint
+:Fasta Files, Assembly;
+Partition "**galaxy**" {
+        split
+            :Sailfish;
+        split again
+            :Salmon;
+        split again
+            :Kallisto;
+        split again
+            :FastQC;
+            detach
+        split end
+        :Quant Files;
+}
+Partition "**Differential Analysis**" {
+        :Tximport;
+        split
+            :Deseq2;
+        split again
+            :EdgeR;
+        split again
+            :Conversion Script;
+            :WGCNA;
+        split end
+}
+split
+Partition "**Gene Ontology with FastBlast**"{
+        :NCBI blast;
+        split
+            :"G:profiler";
+            :Revigo;
+        split again
+            :"geneontology.com";
+        split end
+}
+split again
+split end
+:Figures, Tables;
+@enduml
