@@ -2,4 +2,5 @@
 !/data/**/
 !/data/**/*.org
 
-.direnv/*
+/.direnv/*
+/result/*

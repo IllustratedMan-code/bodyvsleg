@@ -91,15 +91,141 @@ My Emacs setup is very custom, so if you aren't me, then you should use these in
 + Have an install of nix with [[https://nixos.wiki/wiki/Flakes][flakes]]. If you don't have this, then unfortunately I cannot ensure that you will have the same environment, if you are absolutely set on not using nix, then file an issue in the github and I'll walk you through making it work.
 + Clone the repository
 + Make sure you have everything setup according to [[Directory Structure]].
-+ Run =nix build=
++ Run =nix run=
 + That's it! There should be an output directory with all the figures and tables.
 
 If everything was done correctly then it should work, otherwise file an issue [[https://github.com/IllustratedMan-code/RNA-seq-Workflow][here]], or contact me at [[mailto:davidalewis00@gmail.com][my email]].
 ** Script by script
 If run in a script by script basis, the code must be run from the root of this directory.
-* R analysis
+* Nix Scripts
+First we need to setup a "pipeline" for the scripts to run in. This ensures that everything occurs in the right order.
+** flake.nix
+This is where the nix magic occurs. This file is where the reproducible environment is defined. This file generates a =flake.lock= file that pins all the git revisions for all the dependencies. Once the =flake.lock= file is created, this project can be built on any computer that can run nix (most of them) in exactly the same way. This means that if the build succeeds, the resulting program will be exactly the same. This file also makes the entire project easy to run, simply run =nix run=.
+#+begin_src nix :tangle flake.nix
+{
+  inputs = {
+    mach-nix.url = "mach-nix/3.5.0";
+  };
+
+  outputs = {self, nixpkgs, mach-nix }@inp:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs{inherit system;};
+      lsp = ''
+        python-lsp-server
+        flake8
+        pylint
+        autopep8
+        pydocstyle
+        rope
+        yapf
+      '';
+      python_requirements = ''
+        pandas
+        numpy
+        matplotlib
+        rich
+      '';
+      MyRPackages = with pkgs.rPackages; [
+        ggplot2
+        DESeq2
+        tximport
+        edgeR
+      ];
+      Renv = pkgs.rWrapper.override{
+        packages = with pkgs.rPackages; MyRPackages;
+      };
+      pyenv = mach-nix.lib."${system}".mkPython {
+        python = "python38";
+        requirements = lsp + python_requirements;
+      };
+      deps = with pkgs; [pyenv Renv which];
+    in
+     {
+       packages."${system}" = with pkgs; {
+         default = stdenv.mkDerivation{
+          name = "pipeline";
+          buildInputs = deps;
+          src = self;
+          buildPhase = ''
+          '';
+          installPhase = ''
+            mkdir $out
+
+            cp -r scripts $out/scripts
+            cp -r data $out/data
+
+            mkdir $out/bin
+            echo out=$out >> $out/bin/pipeline
+            echo src=$src >> $out/bin/pipeline
+            echo python=$(which python) >> $out/bin/pipeline
+
+            cat $src/scripts/pipeline.sh >> $out/bin/pipeline
+
+            chmod +x $out/bin/pipeline
+          '';
+         };
+       };
+       devShells.${system} = with pkgs; {
+         default = mkShell{
+           buildInputs = deps ++ [plantuml];
+         };
+       };
+    };
+}
+#+end_src
+
+** pipeline.sh
+This is a simple bash file that manages all the steps of this project.
+#+begin_src bash :tangle scripts/pipeline.sh
+#!/usr/bin/env bash
+
+# create data directory if configure script fails
+nixout=$out $python $out/scripts/configure.py
+
+#+end_src
+** configure.py
+This script will configure the data directory so that the rest of the pipeline can run. This includes creating the directory if necessary.
+#+begin_src python :tangle scripts/configure.py
+from rich import print
+from rich.panel import Panel
+from glob import glob
+import os
+import sys
+import shutil
+
+nixout = os.getenv("nixout")
+if not nixout:
+    nixout = "./"
+
+if not os.path.isdir("data"):
+    print(Panel("data directory does not exist, [red]creating. Rerun once you have placed the appropriate data files into the data directory."))
+    shutil.copytree(nixout + "/data", "./data")
+    sys.exit(1)
+
+#+end_src
+*** Manipulate the assembly
+The assembly is located in =data/assembly/assembly.fasta=. Unfortunately, the data can only be imported if the assembly is converted to a =.tabular= file in a specific format. I have written a small script to do the conversion automatically.
+#+begin_src python :tangle scripts/configure.py
+"""
+Script to convert assembly.fasta into assembly.tabular
+"""
+import csv
+with open("./data/assembly/assembly.fasta", "r") as f:
+    lines = f.readlines()
+with open("./data/assembly/assembly.tabular", "w") as f:
+    for gene, rna in zip(lines[::2], lines[1::2]):
+        f.write(f"{gene[1::].strip()}\t{gene[1::].strip()}\t{rna}")
+
+#+end_src
+
+#+RESULTS:
+: None
+
+* Analysis
 This section is where the actual code is explained and written
-** Metadata
+** Data Organization
+*** Metadata
 Metadata is needed to organize the project in a way that the program can understand. Here is the metadata I used for this project.
 #+name: main
 | name                | pesticides | part | trial |
@@ -160,30 +286,14 @@ with open("data/metadata/time_series.csv", "w") as f:
 #+RESULTS:
 : None
 
-** Import the data
+*** Import the data
 The data cannot be imported into differential analysis tools directly, so processing has to occur before analysis.
-*** Manipulate the assembly
-The assembly is located in =data/assembly/assembly.fasta=. Unfortunately, the data can only be imported if the assembly is converted to a =.tabular= file in a specific format. I have written a small script to do the conversion automatically.
-#+begin_src python :tangle scripts/utility/convert_fasta_to_tabular.py
-"""Script to convert assembly.fasta into assembly.tabular"""
-import csv
-with open("data/assembly/assembly.fasta", "r") as f:
-    lines = f.readlines()
-with open("data/assembly/assembly.tabular", "w") as f:
-    for gene, rna in zip(lines[::2], lines[1::2]):
-        f.write(f"{gene[1::].strip()}\t{gene[1::].strip()}\t{rna}")
-
-#+end_src
-
-#+RESULTS:
-: None
-
-*** Import using tximport
+**** Import using tximport
 Now we need to create the txi objects so we can import them into the differential analysis tools. Since we will need to import more than once, I created a function for tximport.
 #+begin_src R :tangle scripts/analysis/import_functions.r
-library(tximport)
 
 create_txi <- function(meta_name, quant_type){
+  library(tximport)
   metadata <- read.csv(file.path("data/metadata", paste(meta_name, "csv", sep=".")), header=TRUE)
   files <- file.path("data/quant", meta_name, metadata$name)
   names(files) = metadata$name
@@ -195,26 +305,27 @@ create_txi <- function(meta_name, quant_type){
 #+end_src
 
 #+RESULTS:
-*** Import into Deseq2
+**** Import into Deseq2
 Here I created a function to import the txi object from the previous section into a deseq2 object.
 #+begin_src R :tangle scripts/analysis/import_functions.r
-library(DESeq2)
 create_deseq <-function(meta_name, txi, design){
+  library(DESeq2)
   metadata <- read.csv(file.path("data/metadata", paste(meta_name, "csv", sep=".")), header=TRUE)
   dataset <- DESeqDataSetFromTximport(txi, colData=metadata, design=design)
-  deseq <- DESeq(data)
+  deseq <- DESeq(dataset)
   return(deseq)
 }
 #+end_src
-*** Import into EdgeR
+**** Import into EdgeR
 Here I created a function to import the txi object into an edgeR object. This is a little more complicated.
 #+begin_src R :tangle scripts/analysis/import_functions.r
-library(edgeR)
-create_edgeR <- function(txi, meta)
+create_edgeR <- function(txi, meta){
+  library(edgeR)
+}
 #+end_src
-*** Import into WGCNA
-**** Convert data to WGCNA
-***** Build WGCNA data file from quant file
+**** Import into WGCNA
+***** Convert data to WGCNA
+****** Build WGCNA data file from quant file
 WGCNA doesn't understand tximport datasets, so we must manipulate the quant files into a dataset that WGCNA can understand.
 #+begin_src python :tangle scripts/analysis/import_functions.py
 import pandas as pd
@@ -265,10 +376,79 @@ sample  pesticides_perm  ...  trial_1__trial_2  trial_3__trial_2
 [17 rows x 37 columns]
 #+end_example
 
-***** Build metadata table for WGCNA
+****** Build metadata table for WGCNA
 #+begin_src python
 
 #+end_src
 
+** Differential Expression Analysis
+*** Deseq2
+**** Get the genes
+Deseq is initialized with a formula of =~part + pesticides=. This formula ensures that all factors are taken into account when determining =log2FoldChange= values. Deseq can only directly compare 2 factors when exporting results, so the =contrast= argument is used to specify the direct comparison.
+#+begin_src R :tangle scripts/analysis/deseq2.r  :async :session deseq
+# source functions
+if(Sys.getenv("nixout") != ""){
+  out = Sys.getenv("nixout")
+}else{
+  out = "./"
+}
+source(paste(out, "scripts/analysis/import_functions.r", sep="/"))
 
-** Deseq
+#+end_src
+
+#+begin_src R :tangle scripts/analysis/deseq2.r :session deseq :async
+main_txi <- create_txi("main", "sailfish")
+# compare the part of the tick (body vs leg) with the different pesticides
+main <- create_deseq("main", main_txi, ~part + pesticides)
+deet <- results(main, contrast=c("pesticides", "deet", "control"))
+perm <- results(main, contrast=c("pesticides", "perm", "control"))
+body_leg <- results(main, contrast=c("part", "body", "leg"))
+
+time_series_txi <- create_txi("time_series", "sailfish")
+time_series <- create_deseq("time_series", time_series_txi, ~Pesticide + Time)
+time_2h <- results(time_series, contrast(""))
+
+#+end_src
+
+#+RESULTS:
+: /tmp/babel-e2VlnV/R-duXQpC
+
+**** Functions for selecting genes
+These are utility functions for selecting the genes based on =pvalue= and =log2FoldChange=
+#+begin_src R :tangle scripts/analysis/deseq2.r :session deseq :async
+# function for determining significance
+significant = function(results, threshold){
+  # which is needed to remove NA values
+  return(results[which(results$padj < threshold),])
+}
+# returns upregulated genes
+upRegulated = function(results, threshold){
+  return(results[which(results$log2FoldChange < threshold),])
+}
+# returns downRegulated genes
+downRegulated = function(results, threshold){
+  return(results[which(results$log2FoldChange > threshold),])
+}
+
+#+end_src
+
+#+RESULTS:
+
+**** Select the genes
+#+begin_src R :tangle scripts/analysis/deseq2.r :session deseq :async
+# select for adjusted p value less than 0.01
+main <- list(deet, perm, body_leg)
+# apply function to every member of data
+# select for p value less than 0.01
+main <- sapply(data, significant, threshold=0.01)
+# select for genes with log2FoldChange larger than 2
+up_regulated = sapply(main, upRegulated, threshold=2)
+# select for genes with log2FoldChange less than -2
+down_regulated = sapply(main, downRegulated, threshold=-2)
+#+end_src
+
+#+RESULTS:
+
+*** EdgeR
+** WGCNA
+* Figures

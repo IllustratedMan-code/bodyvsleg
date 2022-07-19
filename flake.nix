@@ -4,10 +4,9 @@
   };
 
   outputs = {self, nixpkgs, mach-nix }@inp:
-    with import nixpkgs{system = "x86_64-linux";};
     let
-      l = nixpkgs.lib // builtins;
       system = "x86_64-linux";
+      pkgs = import nixpkgs{inherit system;};
       lsp = ''
         python-lsp-server
         flake8
@@ -21,6 +20,7 @@
         pandas
         numpy
         matplotlib
+        rich
       '';
       MyRPackages = with pkgs.rPackages; [
         ggplot2
@@ -31,24 +31,40 @@
       Renv = pkgs.rWrapper.override{
         packages = with pkgs.rPackages; MyRPackages;
       };
-      pyenv = mach-nix.lib.x86_64-linux.mkPython {
+      pyenv = mach-nix.lib."${system}".mkPython {
         python = "python38";
         requirements = lsp + python_requirements;
       };
+      deps = with pkgs; [pyenv Renv which];
     in
      {
-      # enter this python environment by executing `nix shell .`
-       packages = {
-         ${system}.default = stdenv.mkDerivation{
-          name = "RNA-seq output";
-          buildInputs = [pyenv Renv];
-          src = ./.;
-          installPhase = "mkdir $out";
+       packages."${system}" = with pkgs; {
+         default = stdenv.mkDerivation{
+          name = "pipeline";
+          buildInputs = deps;
+          src = self;
+          buildPhase = ''
+          '';
+          installPhase = ''
+            mkdir $out
+
+            cp -r scripts $out/scripts
+            cp -r data $out/data
+
+            mkdir $out/bin
+            echo out=$out >> $out/bin/pipeline
+            echo src=$src >> $out/bin/pipeline
+            echo python=$(which python) >> $out/bin/pipeline
+
+            cat $src/scripts/pipeline.sh >> $out/bin/pipeline
+
+            chmod +x $out/bin/pipeline
+          '';
          };
        };
-       devshells = {
-         ${system}.default = pkgs.mkShell{
-           buildInputs = [pyenv Renv plantuml];
+       devShells.${system} = with pkgs; {
+         default = mkShell{
+           buildInputs = deps ++ [plantuml];
          };
        };
     };
