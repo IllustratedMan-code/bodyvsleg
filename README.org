@@ -1,0 +1,5 @@
+#+TITLE: RNA-SEQ workflow for tick body vs leg comparison.
+
+View =workflow.org= for a description of the workflow as well as instructions on how to run it. The website is a nicely formatted version of =workflow.org=.
+* TODO Website
+LInk

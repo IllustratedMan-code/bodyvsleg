@@ -24,9 +24,15 @@
       '';
       MyRPackages = with pkgs.rPackages; [
         ggplot2
+        ggh4x
         DESeq2
+        tidyverse
         tximport
         edgeR
+        styler
+        svglite
+        ggVennDiagram
+        cowplot
       ];
       Renv = pkgs.rWrapper.override{
         packages = with pkgs.rPackages; MyRPackages;
@@ -35,7 +41,7 @@
         python = "python38";
         requirements = lsp + python_requirements;
       };
-      deps = with pkgs; [pyenv Renv which];
+      deps = with pkgs; [pyenv Renv which blast];
     in
      {
        packages."${system}" = with pkgs; {

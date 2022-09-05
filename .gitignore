@@ -2,5 +2,10 @@
 !/data/**/
 !/data/**/*.org
 
+/output/**
+!/output/**/
+!/output/**/*.org
+!/output/**/*.png
+
 /.direnv/*
 /result/*

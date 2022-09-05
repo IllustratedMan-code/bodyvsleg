@@ -60,9 +60,11 @@ split end
 @enduml
 #+end_src
 
-#+attr_html: :width=50%
 #+RESULTS:
 [[file:resources/flowchart.png]]
+
+#+attr_html: :width=50%
+#+RESULTS:
 ** Explanation
 I was not originally a part of this project when the Fasta Files and genome assembly were created. My general understanding is that those steps occurred as part of a collaboration with Cincinnati Children's Medical Center.
 
@@ -94,7 +96,7 @@ My Emacs setup is very custom, so if you aren't me, then you should use these in
 + Run =nix run=
 + That's it! There should be an output directory with all the figures and tables.
 
-If everything was done correctly then it should work, otherwise file an issue [[https://github.com/IllustratedMan-code/RNA-seq-Workflow][here]], or contact me at [[mailto:davidalewis00@gmail.com][my email]].
+If everything was done correctly then it should work, otherwise file an issue [[https://github.com/IllustratedMan-code/RNA-seq-Workflow][here]].
 ** Script by script
 If run in a script by script basis, the code must be run from the root of this directory.
 * Nix Scripts
@@ -202,28 +204,12 @@ if not os.path.isdir("data"):
     print(Panel("data directory does not exist, [red]creating. Rerun once you have placed the appropriate data files into the data directory."))
     shutil.copytree(nixout + "/data", "./data")
     sys.exit(1)
-
+if not os.path.isdir("output"):
+    print(Panel("output directory does not exist, [red]creating.")
+    shutil.copytree(nixout + "/output", "./output")
 #+end_src
-*** Manipulate the assembly
-The assembly is located in =data/assembly/assembly.fasta=. Unfortunately, the data can only be imported if the assembly is converted to a =.tabular= file in a specific format. I have written a small script to do the conversion automatically.
-#+begin_src python :tangle scripts/configure.py
-"""
-Script to convert assembly.fasta into assembly.tabular
-"""
-import csv
-with open("./data/assembly/assembly.fasta", "r") as f:
-    lines = f.readlines()
-with open("./data/assembly/assembly.tabular", "w") as f:
-    for gene, rna in zip(lines[::2], lines[1::2]):
-        f.write(f"{gene[1::].strip()}\t{gene[1::].strip()}\t{rna}")
-
-#+end_src
-
-#+RESULTS:
-: None
-
+This section is where the code for the analysis is written. No figures are created in this section.
 * Analysis
-This section is where the actual code is explained and written
 ** Data Organization
 *** Metadata
 Metadata is needed to organize the project in a way that the program can understand. Here is the metadata I used for this project.
@@ -248,30 +234,31 @@ Metadata is needed to organize the project in a way that the program can underst
 | Cont_Leg_1.tabular  | control    | leg  |     1 |
 
 #+name: time_series
-| name                 | Pesticide | Time    |
-| Cont-1.tabular       | control   | control |
-| Cont-2.tabular       | control   | control |
-| Cont-3.tabular       | control   | control |
-| PER-2h-A.tabular     | perm      | 2h      |
-| PER-2h-B.tabular     | perm      | 2h      |
-| PER-2h-C.tabular     | perm      | 2h      |
-| PER-6h-A.tabular     | perm      | 6h      |
-| PER-6h-B.tabular     | perm      | 6h      |
-| PER-6h-C.tabular     | perm      | 6h      |
-| PER-24h-A.tabular    | perm      | 24h     |
-| PER-24h-B.tabular    | perm      | 24h     |
-| PER-24h-C.tabular    | perm      | 24h     |
-| Deet-0.25h-1.tabular | perm      | 2h      |
-| Deet-0.25h-2.tabular | perm      | 2h      |
-| Deet-0.25h-3.tabular | perm      | 2h      |
-| Deet-4h-1.tabular    | perm      | 6h      |
-| Deet-4h-2.tabular    | perm      | 6h      |
-| Deet-4h-3.tabular    | perm      | 6h      |
-| Deet-24h-1.tabular   | perm      | 24h     |
-| Deet-24h-2.tabular   | perm      | 24h     |
-| Deet-24h-3.tabular   | perm      | 24h     |
+| name                 | condition       | pesticides | time    |
+| Cont-1.tabular       | control-control | control    | control |
+| Cont-2.tabular       | control-control | control    | control |
+| Cont-3.tabular       | control-control | control    | control |
+| PER-2h-A.tabular     | perm-2h         | perm       | 2h      |
+| PER-2h-B.tabular     | perm-2h         | perm       | 2h      |
+| PER-2h-C.tabular     | perm-2h         | perm       | 2h      |
+| PER-6h-A.tabular     | perm-6h         | perm       | 6h      |
+| PER-6h-B.tabular     | perm-6h         | perm       | 6h      |
+| PER-6h-C.tabular     | perm-6h         | perm       | 6h      |
+| PER-24h-A.tabular    | perm-24h        | perm       | 24h     |
+| PER-24h-B.tabular    | perm-24h        | perm       | 24h     |
+| PER-24h-C.tabular    | perm-24h        | perm       | 24h     |
+| Deet-0.25h-1.tabular | deet-0.25h      | deet       | 0.25h   |
+| Deet-0.25h-2.tabular | deet-0.25h      | deet       | 0.25h   |
+| Deet-0.25h-3.tabular | deet-0.25h      | deet       | 0.25h   |
+| Deet-4h-1.tabular    | deet-4h         | deet       | 4h      |
+| Deet-4h-2.tabular    | deet-4h         | deet       | 4h      |
+| Deet-4h-3.tabular    | deet-4h         | deet       | 4h      |
+| Deet-24h-1.tabular   | deet-24h        | deet       | 24h     |
+| Deet-24h-2.tabular   | deet-24h        | deet       | 24h     |
+| Deet-24h-3.tabular   | deet-24h        | deet       | 24h     |
 
 We will write the metadata to the =data/metadata= directory using a small script.
+This step is not present in the pipeline, and should be added manually.
 #+begin_src python :var main=main :var time_series=time_series
 import csv
 import os
@@ -316,6 +303,9 @@ create_deseq <-function(meta_name, txi, design){
   return(deseq)
 }
 #+end_src
+
+#+RESULTS:
+
 **** Import into EdgeR
 Here I created a function to import the txi object into an edgeR object. This is a little more complicated.
 #+begin_src R :tangle scripts/analysis/import_functions.r
@@ -323,6 +313,9 @@ create_edgeR <- function(txi, meta){
   library(edgeR)
 }
 #+end_src
+
+#+RESULTS:
+
 **** Import into WGCNA
 ***** Convert data to WGCNA
 ****** Build WGCNA data file from quant file
@@ -381,6 +374,8 @@ sample  pesticides_perm  ...  trial_1__trial_2  trial_3__trial_2
 
 #+end_src
 
+#+RESULTS:
+
 ** Differential Expression Analysis
 *** Deseq2
 **** Get the genes
@@ -396,25 +391,40 @@ source(paste(out, "scripts/analysis/import_functions.r", sep="/"))
 
 #+end_src
 
+#+RESULTS:
+
 #+begin_src R :tangle scripts/analysis/deseq2.r :session deseq :async
 main_txi <- create_txi("main", "sailfish")
-# compare the part of the tick (body vs leg) with the different pesticides
 main <- create_deseq("main", main_txi, ~part + pesticides)
+time_series_txi <- create_txi("time_series", "sailfish")
+time_series <- create_deseq("time_series", time_series_txi, ~condition)
+
+# variance stabilized data
+vsd <- list("main" = assay(vst(main)), "time_series" = assay(vst(time_series)) )
+
+# compare the part of the tick (body vs leg) with the different pesticides
 deet <- results(main, contrast=c("pesticides", "deet", "control"))
 perm <- results(main, contrast=c("pesticides", "perm", "control"))
 body_leg <- results(main, contrast=c("part", "body", "leg"))
 
-time_series_txi <- create_txi("time_series", "sailfish")
-time_series <- create_deseq("time_series", time_series_txi, ~Pesticide + Time)
-time_2h <- results(time_series, contrast(""))
+get_time_comparison = function(pest_time){
+  return(results(time_series, contrast=c("condition", pest_time, "control-control")))
+}
+perm_2h <- get_time_comparison("perm-2h")
+perm_6h <- get_time_comparison("perm-6h")
+perm_24h <- get_time_comparison("perm-24h")
+
+deet_2h <- get_time_comparison("deet-0.25h")
+deet_4h <- get_time_comparison("deet-4h")
+deet_24h <- get_time_comparison("deet-24h")
+
 
 #+end_src
 
 #+RESULTS:
-: /tmp/babel-e2VlnV/R-duXQpC
 
 **** Functions for selecting genes
-These are utility functions for selecting the genes based on =pvalue= and =log2FoldChange=
+These are utility functions for selecting the genes based on adjusted p-value (=padj=) and =log2FoldChange=.
 #+begin_src R :tangle scripts/analysis/deseq2.r :session deseq :async
 # function for determining significance
 significant = function(results, threshold){
@@ -423,11 +433,11 @@ significant = function(results, threshold){
 }
 # returns upregulated genes
 upRegulated = function(results, threshold){
-  return(results[which(results$log2FoldChange < threshold),])
+  return(results[which(results$log2FoldChange > threshold),])
 }
 # returns downRegulated genes
 downRegulated = function(results, threshold){
-  return(results[which(results$log2FoldChange > threshold),])
+  return(results[which(results$log2FoldChange < threshold),])
 }
 
 #+end_src
@@ -435,20 +445,268 @@ downRegulated = function(results, threshold){
 #+RESULTS:
 
 **** Select the genes
+The genes are selected using the previously defined [[Functions for selecting genes][functions]] and =sapply= to apply the functions to all of the data at once. An adjusted p-value of 0.01 was chosen as the statistical cutoff value. A log2FoldChange range of \((\infty < -2) \cup (2 < \infty)\) was chosen to differentiate unregulated vs regulated genes.
 #+begin_src R :tangle scripts/analysis/deseq2.r :session deseq :async
 # select for adjusted p value less than 0.01
-main <- list(deet, perm, body_leg)
+data <- list(
+  "deet" = deet,
+  "perm" = perm,
+  "body_leg" = body_leg,
+  "perm_2h" = perm_2h,
+  "perm_6h" = perm_6h,
+  "perm_24h" = perm_24h,
+  "deet_2h" = deet_2h,
+  "deet_4h" = deet_4h,
+  "deet_24h" = deet_24h)
 # apply function to every member of data
 # select for p value less than 0.01
-main <- sapply(data, significant, threshold=0.01)
+data <- sapply(data, significant, threshold=0.01)
 # select for genes with log2FoldChange larger than 2
-up_regulated = sapply(main, upRegulated, threshold=2)
+up_regulated = sapply(data, upRegulated, threshold=2)
 # select for genes with log2FoldChange less than -2
-down_regulated = sapply(main, downRegulated, threshold=-2)
+down_regulated = sapply(data, downRegulated, threshold=-2)
+
+#+end_src
+
+#+RESULTS:
+**** Save the Results
+This is a good intermediate step. This also allows for export of tables. Unfortunately, it makes it slightly harder to re-import data as shown later.
+#+begin_src R :tangle scripts/analysis/deseq2.r :session deseq :async
+save_table = function(name, parentdir, table){
+  filename = sprintf("./output/deseq_tables/%s/%s.csv", parentdir, name)
+  write.csv(table, filename)
+}
+write_data = function(data, prefix){
+  lapply(names(data), function(name) save_table(name, prefix, data[[name]]))
+}
+
+write_data(data, "data")
+write_data(up_regulated, "up_regulated")
+write_data(down_regulated, "down_regulated")
+write_data(vsd, "variance_stabilized")
 #+end_src
 
 #+RESULTS:
 
 *** EdgeR
 ** WGCNA
+** Gene Ontology
+*** Blast
+NCBI blast is a tool to map the genes of one species to another, so that gene annotations can be determined. In this case, Dermacentor Variabilis genes need to be mapped onto Ixodes Scapularis genes. This is one of the more time consuming tasks in the pipeline.
+#+begin_src
+
+#+end_src
+
 * Figures
+Now the fun part! Plotting the data. This section is almost fully dependent upon the metadata. I don't think I can make it more generic without compromising code integrity. The good news is that most of this is in functions, so user configuration is possible.
+** Plotting functions
+#+begin_src R :session figures :tangle scripts/figures/figures.r :async
+library(tidyverse)
+options(pillar.subtle = FALSE)
+get_data <- function(name){
+  csv <- read_csv(sprintf("./output/deseq_tables/%s",name))
+  names(csv)[1] <- "rows"
+  return(csv)
+}
+csv_data = list("deet" = get_data("data/deet.csv"),
+            "perm" = get_data("data/perm.csv"),
+            "body_leg" = get_data("data/body_leg.csv"),
+            "deet_24h" = get_data("data/deet_24h.csv"),
+            "deet_2h" = get_data("data/deet_2h.csv"),
+            "deet_4h" = get_data("data/deet_4h.csv"),
+            "perm_24h" = get_data("data/perm_24h.csv"),
+            "perm_2h" = get_data("data/perm_2h.csv"),
+            "perm_6h" = get_data("data/perm_6h.csv")
+            )
+csv_data_up = list("deet" = get_data("up_regulated/deet.csv"),
+            "perm" = get_data("up_regulated/perm.csv"),
+            "body_leg" = get_data("up_regulated/body_leg.csv"),
+            "deet_24h" = get_data("up_regulated/deet_24h.csv"),
+            "deet_2h" = get_data("up_regulated/deet_2h.csv"),
+            "deet_4h" = get_data("up_regulated/deet_4h.csv"),
+            "perm_24h" = get_data("up_regulated/perm_24h.csv"),
+            "perm_2h" = get_data("up_regulated/perm_2h.csv"),
+            "perm_6h" = get_data("up_regulated/perm_6h.csv")
+            )
+csv_data_down = list("deet" = get_data("down_regulated/deet.csv"),
+            "perm" = get_data("down_regulated/perm.csv"),
+            "body_leg" = get_data("down_regulated/body_leg.csv"),
+            "deet_24h" = get_data("down_regulated/deet_24h.csv"),
+            "deet_2h" = get_data("down_regulated/deet_2h.csv"),
+            "deet_4h" = get_data("down_regulated/deet_4h.csv"),
+            "perm_24h" = get_data("down_regulated/perm_24h.csv"),
+            "perm_2h" = get_data("down_regulated/perm_2h.csv"),
+            "perm_6h" = get_data("down_regulated/perm_6h.csv")
+            )
+vsd = list("main" = get_data("variance_stabilized/main.csv"),
+           "time_series" = get_data("variance_stabilized/time_series.csv"))
+#+end_src
+
+#+RESULTS:
+
+*** kmeans plot
+Two functions are defined here to manipulate the data in a way that facilitates plotting. =kplot_var_data= is used for [[Figure 9: Time Course Legs][Figure 9]] and [[Figure 10: Time Course Body][Figure 10]].
+#+begin_src R :session figures :tangle scripts/figures/figures.r :async
+kplot <- function(data, order,clusters = 10 ) {
+  stack_data <- function(name) {
+    table <- data[[name]]
+    table <- as.data.frame(table)
+    row.names(table) <- table[, 1]
+    table <- table[, -1]
+    table$cluster <- kmeans(table, clusters, clusters)$cluster
+    return(table)
+  }
+  km <- lapply(names(data), stack_data)
+  names(km) <-names(data)
+
+  km <- bind_rows(km, .id="column_label")
+  km <- as_tibble(km, rownames = "rows")
+  pl <- ggplot(km, aes(x = factor(column_label, levels=order), y = baseMean)) + geom_jitter(aes(color = column_label)) + facet_wrap(~cluster, ncol=2)
+  return(pl)
+}
+# example usage
+order <- c("body_leg", "deet", "deet_2h", "deet_4h", "deet_24h", "perm_2h", "perm_6h", "perm_24h")
+#d <- kplot(csv_data, order)
+
+# kplot for variance data. This "melts" the data to a usable form for plottling
+kplot_var_data <- function(data,clusters = 10){
+  stack_data <- function(vsd){
+    km <- kmeans(vsd[,-1], clusters, clusters)
+    vsd$cluster <- km$cluster
+    return(gather(vsd, "name", "value", -cluster, -rows))
+  }
+  add_meta <- function(stacked_data, meta){
+    return(merge(stacked_data, meta, by.x="name", by.y="name"))
+  }
+  apply_meta <- function(name, data){
+    meta <- read_csv(sprintf("data/metadata/%s.csv", "time_series"))
+    data[[name]]<-add_meta(data[[name]], meta)
+  }
+  d <- lapply(data, stack_data)
+  d <- lapply(names(d), apply_meta, data=d)
+  d <- lapply(d, as_tibble)
+  names(d) <- names(data)
+  return(d)
+}
+# usage
+#+end_src
+
+#+RESULTS:
+
+** Figure 1: Methods Comparison
+Comparison between edgeR and DESeq2 using Pearson correlation Coefficient
+** TODO Figure 2: Perm and DEET repellency and survival
+Waiting on email from Andrew.
+** Figure 3: Legs vs Body
+*** Venn diagram
+This plots a venn diagram comparing leg and body genes, where the center is genes that are unregulated. These are all statistically significant (adjusted p value < 0.01)
+#+begin_src R :session figures :tangle scripts/figures/figures.r :async
+library(ggVennDiagram)
+both <- csv_data$body_leg$rows
+body <- both[! both %in% csv_data_down$body_leg$rows]
+leg <- both[! both %in% csv_data_up$body_leg$rows]
+plot <- list("body" = body, "leg" = leg)
+pl <- ggVennDiagram(plot, color="black", edge_size = 0) + scale_fill_distiller(palette = "Blues" )
+ggsave("./output/figures/figure_3/plot.svg", pl)
+ggsave("./output/figures/figure_3/plot.png", pl)
+#+end_src
+#+RESULTS:
+*** Treemap body
+need to blast, then revigo, then treemap
+*** Treemap Legs
+** TODO Figure 4: Legs Vs Body specifics and overlap with Ixodes
+Maybe skip
+** Figure 5: Deet expression in body and Leg
+*** Venn Diagram: Deet expression in body genes
+#+begin_src R :session figures :tangle scripts/figures/figures.r :async
+body <- csv_data_up$body_leg$rows
+deet <- csv_data_up$deet$rows
+plot <- list("body" = body, "deet" = deet)
+pl <- ggVennDiagram(plot, color="black", edge_size = 0) + scale_fill_distiller(palette = "Blues" )
+ggsave("./output/figures/figure_5/body_plot.svg", pl)
+ggsave("./output/figures/figure_5/body_plot.png", pl)
+
+#+end_src
+
+#+RESULTS:
+: ./output/figures/figure_5/body_plot.png
+
+*** Venn Diagram: Deet Expression in Leg genes
+Most deet regulated genes are not regulated in the leg
+#+begin_src R :session figures :tangle scripts/figures/figures.r :async
+leg <- csv_data_down$body_leg$rows
+deet <- csv_data_up$deet$rows
+plot <- list("leg" = both, "deet" = deet)
+pl <- ggVennDiagram(plot, color="black", edge_size = 0) + scale_fill_distiller(palette = "Blues" )
+ggsave("./output/figures/figure_5/leg_plot.svg", pl)
+ggsave("./output/figures/figure_5/leg_plot.png", pl)
+
+#+end_src
+
+#+RESULTS:
+: ./output/figures/figure_5/leg_plot.png
+
+** Figure 6: Perm expression in body and leg
+*** Venn Diagram: Perm expression in body genes
+#+begin_src R :session figures :tangle scripts/figures/figures.r :async
+body <- csv_data_up$body_leg$rows
+perm <- csv_data_up$perm$rows
+plot <- list("body" = body, "perm" = perm)
+pl <- ggVennDiagram(plot, color="black", edge_size = 0) + scale_fill_distiller(palette = "Blues" )
+ggsave("./output/figures/figure_5/body_plot.svg", pl)
+ggsave("./output/figures/figure_5/body_plot.png", pl)
+
+#+end_src
+*** Venn Diagram: Perm Expression in Leg genes
+#+begin_src R :session figures :tangle scripts/figures/figures.r :async
+leg <- csv_data_down$body_leg$rows
+deet <- csv_data_up$deet$rows
+plot <- list("leg" = both, "deet" = deet)
+pl <- ggVennDiagram(plot, color="black", edge_size = 0) + scale_fill_distiller(palette = "Blues" )
+ggsave("./output/figures/figure_5/leg_plot.svg", pl)
+ggsave("./output/figures/figure_5/leg_plot.png", pl)
+
+#+end_src
+** Figure 7: WGCNA analysis (GO analysis of blue and pink modules)
+** Figure 8: Overlap between body and leg response
+** Figure 9: Time Course Legs
+This is a kmeans plot of genes deferentially expressed in the tick leg compared to the time course data (time_series)
+#+begin_src R :session figures :tangle scripts/figures/figures.r :async
+time_series <- vsd$time_series
+time_series_body_leg <- list(
+  "leg" = subset(time_series, time_series$rows %in% csv_data_down$body_leg$rows),
+  "body" = subset(time_series, time_series$rows %in% csv_data_up$body_leg$rows)
+)
+d <- kplot_var_data(time_series_body_leg)
+d$leg <- d$leg[!(d$leg$pesticides == "control"), ]
+order <- c("deet-0.25h", "deet-4h", "deet-24h", "perm-2h", "perm-6h", "perm-24h")
+pl <- ggplot(d$leg, aes(x = factor(condition, levels = order), y = value)) +
+  geom_jitter(aes(color = condition)) +
+  ggh4x::facet_grid2(cluster ~ factor(pesticides, levels = c("deet", "perm")), scales = "free", independent = "y") +
+  geom_boxplot(alpha = 0) +
+  stat_summary(aes(y = value, group = 1), fun = median, colour = "black", geom = "line", group = 1) +
+  ggtitle("Variance Stabilized Kmean Clusters for Genes Expressed in Tick Legs")
+ggsave("./output/figures/figure_9/plot.svg", pl)
+ggsave("./output/figures/figure_9/plot.png", pl)
+#+end_src
+
+#+RESULTS:
+: ./output/figures/figure_9/plot.png
+
+** Figure 10: Time Course Body
+This is a kmeans plot of genes deferentially expressed in the tick body compared to the time course data (time_series)
+#+begin_src R :session figures :tangle scripts/figures/figures.r :async
+d$body <- d$body[!(d$body$pesticides == "control"),]
+order <- c("deet-0.25h", "deet-4h", "deet-24h", "perm-2h", "perm-6h", "perm-24h")
+pl <- ggplot(d$body, aes(x = factor(condition, levels=order), y = value)) +
+  geom_jitter(aes(color = condition), size = 0.5) +
+  ggh4x::facet_grid2(cluster ~ factor(pesticides, levels=c("deet", "perm")), scales="free", independent="y") +
+  geom_boxplot(alpha = 0) +
+  stat_summary(aes(y = value, group = 1), fun = median, colour = "black", geom = "line", group = 1) +
+  ggtitle("Variance Stabilized Kmean Clusters for Genes Expressed in Tick Legs")
+ggsave("./output/figures/figure_10/plot.svg", pl, height=12, width=7)
+ggsave("./output/figures/figure_10/plot.png", pl, height=12, width=7)
+#+end_src
+
+#+RESULTS:
+: ./output/figures/figure_10/plot.png
